@@ -1,0 +1,20 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sftp
+      POSTGRES_PASSWORD: sftp
+      POSTGRES_DB: sftp
+    ports:
+      - "5432:5432"
+  app:
+    build: .
+    depends_on:
+      - db
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/sftp
+      SPRING_DATASOURCE_USERNAME: sftp
+      SPRING_DATASOURCE_PASSWORD: sftp
+    ports:
+      - "8080:8080"
