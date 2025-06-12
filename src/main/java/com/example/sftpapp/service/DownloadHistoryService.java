@@ -1,5 +1,7 @@
 package com.example.sftpapp.service;
 
+import com.example.sftpapp.entity.DownloadRecord;
+import com.example.sftpapp.repository.DownloadRecordRepository;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
@@ -19,9 +21,15 @@ public class DownloadHistoryService {
     private final Set<String> downloaded = new HashSet<>();
     private Workbook workbook;
     private Sheet sheet;
+    private final DownloadRecordRepository repository;
+
+    public DownloadHistoryService(DownloadRecordRepository repository) {
+        this.repository = repository;
+    }
 
     @PostConstruct
     public void init() throws IOException {
+        repository.findAll().forEach(r -> downloaded.add(r.getFilename()));
         File file = new File(HISTORY_FILE);
         if (file.exists()) {
             try (FileInputStream fis = new FileInputStream(file)) {
@@ -56,10 +64,12 @@ public class DownloadHistoryService {
         Row row = sheet.createRow(rowNum);
         row.createCell(0).setCellValue(fileName);
         row.createCell(1).setCellValue(localPath.toString());
-        row.createCell(2).setCellValue(System.currentTimeMillis());
+        long timestamp = System.currentTimeMillis();
+        row.createCell(2).setCellValue(timestamp);
         downloaded.add(fileName);
         try (FileOutputStream fos = new FileOutputStream(HISTORY_FILE)) {
             workbook.write(fos);
         }
+        repository.save(new DownloadRecord(fileName, localPath.toString(), timestamp));
     }
 }
