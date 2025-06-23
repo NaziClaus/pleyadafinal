@@ -1,0 +1,33 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: sftp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - db-data:/var/lib/postgresql/data
+  sftp:
+    image: atmoz/sftp
+    command: user:pass:::data
+    volumes:
+      - sftp-data:/home/user/data
+  app:
+    build: .
+    env_file: .env
+    depends_on:
+      - db
+      - sftp
+    volumes:
+      - downloads:/downloads
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+volumes:
+  db-data:
+  sftp-data:
+  downloads:
