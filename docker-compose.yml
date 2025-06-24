@@ -1,0 +1,32 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+  app:
+    build: .
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SFTP_HOST: ${SFTP_HOST}
+      SFTP_PORT: ${SFTP_PORT}
+      SFTP_USER: ${SFTP_USER}
+      SFTP_PASS: ${SFTP_PASS}
+      SFTP_REMOTE_DIR: ${SFTP_REMOTE_DIR}
+      LOCAL_DOWNLOAD_DIR: ${LOCAL_DOWNLOAD_DIR}
+      CSV_LOG_DIR: ${CSV_LOG_DIR}
+    depends_on:
+      - db
+    volumes:
+      - ./downloads:/downloads
+      - ./logs:/logs
+volumes:
+  db_data:
