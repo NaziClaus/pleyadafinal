@@ -19,4 +19,17 @@ Prometheus will be available on port `9090`.
 
 Create a `.env` file next to `docker-compose.yml` with your credentials. See
 `.env.example` for the required variables. At a minimum you must provide SFTP
-connection details and database credentials.
+connection details and database credentials. The file should look like:
+
+```dotenv
+# database
+SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/sftp
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=postgres
+
+# SFTP credentials
+SFTP_HOST=sftp
+SFTP_PORT=22
+SFTP_USERNAME=user
+SFTP_PASSWORD=pass
+```
