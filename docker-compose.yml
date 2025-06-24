@@ -22,9 +22,11 @@ services:
       SFTP_PASS: ${SFTP_PASS}
       SFTP_REMOTE_DIR: ${SFTP_REMOTE_DIR}
       LOCAL_DOWNLOAD_DIR: ${LOCAL_DOWNLOAD_DIR}
+      CSV_LOG_DIR: ${CSV_LOG_DIR}
     depends_on:
       - db
     volumes:
       - ./downloads:/downloads
+      - ./logs:/logs
 volumes:
   db_data:

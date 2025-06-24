@@ -3,6 +3,7 @@ package com.example.filedownloader.scheduler;
 import com.example.filedownloader.model.FileMetadata;
 import com.example.filedownloader.service.SftpService;
 import com.opencsv.CSVWriter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -14,6 +15,9 @@ import java.util.List;
 public class DownloadScheduler {
 
     private final SftpService sftpService;
+
+    @Value("${CSV_LOG_DIR:logs}")
+    private String logDir;
 
     public DownloadScheduler(SftpService sftpService) {
         this.sftpService = sftpService;
@@ -28,7 +32,9 @@ public class DownloadScheduler {
     }
 
     private void writeCsv(List<FileMetadata> list) {
-        try (CSVWriter writer = new CSVWriter(new FileWriter("download-log.csv", true))) {
+        new java.io.File(logDir).mkdirs();
+        java.io.File file = new java.io.File(logDir, "download-log.csv");
+        try (CSVWriter writer = new CSVWriter(new FileWriter(file, true))) {
             for (FileMetadata meta : list) {
                 writer.writeNext(new String[]{meta.getFileName(), String.valueOf(meta.getSize()), meta.getDownloadedAt().toString()});
             }
