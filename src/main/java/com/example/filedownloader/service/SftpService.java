@@ -9,7 +9,6 @@ import com.jcraft.jsch.SftpProgressMonitor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -47,61 +46,72 @@ public class SftpService {
         this.repository = repository;
     }
 
-    @PostConstruct
-    public void init() throws Exception {
+    private void connect() throws Exception {
+        if (session != null && session.isConnected()) {
+            return;
+        }
         JSch jsch = new JSch();
         session = jsch.getSession(user, host, port);
         session.setPassword(password);
         java.util.Properties config = new java.util.Properties();
         config.put("StrictHostKeyChecking", "no");
         session.setConfig(config);
-        session.connect();
+        session.connect(10_000);
         channel = (ChannelSftp) session.openChannel("sftp");
-        channel.connect();
+        channel.connect(10_000);
         new File(localDir).mkdirs();
     }
 
     @PreDestroy
     public void destroy() {
+        disconnect();
+    }
+
+    private void disconnect() {
         if (channel != null && channel.isConnected()) channel.disconnect();
         if (session != null && session.isConnected()) session.disconnect();
     }
 
     public List<FileMetadata> scanAndDownload() throws Exception {
-        List<FileMetadata> downloaded = new ArrayList<>();
-        Vector<ChannelSftp.LsEntry> files = channel.ls(remoteDir);
-        LocalDate today = LocalDate.now();
-        int queue = 0;
-        for (ChannelSftp.LsEntry entry : files) {
-            String name = entry.getFilename();
-            if (entry.getAttrs().isDir()) continue;
-            if (!name.endsWith(".zip") && !name.endsWith(".rar")) continue;
-            LocalDate fileDate = Instant.ofEpochSecond(entry.getAttrs().getMTime())
-                    .atZone(ZoneId.systemDefault()).toLocalDate();
-            if (!fileDate.equals(today)) continue;
-            if (repository.existsByFileName(name)) continue;
-            queue++;
-        }
-        System.out.printf("Found %d files to download\n", queue);
-        for (ChannelSftp.LsEntry entry : files) {
-            String name = entry.getFilename();
-            if (entry.getAttrs().isDir()) continue;
-            if (!name.endsWith(".zip") && !name.endsWith(".rar")) continue;
-            LocalDate fileDate = Instant.ofEpochSecond(entry.getAttrs().getMTime())
-                    .atZone(ZoneId.systemDefault()).toLocalDate();
-            if (!fileDate.equals(today)) continue;
-            if (repository.existsByFileName(name)) continue;
-
-            long size = entry.getAttrs().getSize();
-            File target = new File(localDir, name);
-            try (OutputStream os = new FileOutputStream(target)) {
-                channel.get(remoteDir + "/" + name, os, new ProgressMonitor(name, size));
+        connect();
+        try {
+            List<FileMetadata> downloaded = new ArrayList<>();
+            Vector<ChannelSftp.LsEntry> files = channel.ls(remoteDir);
+            LocalDate today = LocalDate.now();
+            int queue = 0;
+            for (ChannelSftp.LsEntry entry : files) {
+                String name = entry.getFilename();
+                if (entry.getAttrs().isDir()) continue;
+                if (!name.endsWith(".zip") && !name.endsWith(".rar")) continue;
+                LocalDate fileDate = Instant.ofEpochSecond(entry.getAttrs().getMTime())
+                        .atZone(ZoneId.systemDefault()).toLocalDate();
+                if (!fileDate.equals(today)) continue;
+                if (repository.existsByFileName(name)) continue;
+                queue++;
             }
-            FileMetadata meta = new FileMetadata(name, size, Instant.now());
-            repository.save(meta);
-            downloaded.add(meta);
+            System.out.printf("Found %d files to download%n", queue);
+            for (ChannelSftp.LsEntry entry : files) {
+                String name = entry.getFilename();
+                if (entry.getAttrs().isDir()) continue;
+                if (!name.endsWith(".zip") && !name.endsWith(".rar")) continue;
+                LocalDate fileDate = Instant.ofEpochSecond(entry.getAttrs().getMTime())
+                        .atZone(ZoneId.systemDefault()).toLocalDate();
+                if (!fileDate.equals(today)) continue;
+                if (repository.existsByFileName(name)) continue;
+
+                long size = entry.getAttrs().getSize();
+                File target = new File(localDir, name);
+                try (OutputStream os = new FileOutputStream(target)) {
+                    channel.get(remoteDir + "/" + name, os, new ProgressMonitor(name, size));
+                }
+                FileMetadata meta = new FileMetadata(name, size, Instant.now());
+                repository.save(meta);
+                downloaded.add(meta);
+            }
+            return downloaded;
+        } finally {
+            disconnect();
         }
-        return downloaded;
     }
 
     private static class ProgressMonitor implements SftpProgressMonitor {
@@ -120,7 +130,8 @@ public class SftpService {
         public void init(int op, String src, String dest, long max) {
             start = System.currentTimeMillis();
             lastPrint = start;
-            System.out.printf("Starting %s (size: %d bytes)\n", fileName, max);
+            System.out.printf("Starting %s (size: %d bytes)%n", fileName, max);
+            System.out.flush();
         }
 
         @Override
@@ -137,6 +148,7 @@ public class SftpService {
                 } else {
                     System.out.printf("\r%s: %d%%", fileName, percent);
                 }
+                System.out.flush();
                 lastPrint = now;
             }
             return true;
@@ -145,7 +157,8 @@ public class SftpService {
         @Override
         public void end() {
             long duration = System.currentTimeMillis() - start;
-            System.out.printf("\nFinished %s in %ds\n", fileName, duration / 1000);
+            System.out.printf("%nFinished %s in %ds%n", fileName, duration / 1000);
+            System.out.flush();
         }
     }
 }

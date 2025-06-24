@@ -24,10 +24,14 @@ public class DownloadScheduler {
     }
 
     @Scheduled(fixedRateString = "PT30M")
-    public void scan() throws Exception {
-        List<FileMetadata> downloaded = sftpService.scanAndDownload();
-        if (!downloaded.isEmpty()) {
-            writeCsv(downloaded);
+    public void scan() {
+        try {
+            List<FileMetadata> downloaded = sftpService.scanAndDownload();
+            if (!downloaded.isEmpty()) {
+                writeCsv(downloaded);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
